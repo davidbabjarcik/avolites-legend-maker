@@ -9,6 +9,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Kalam:wght@400;700&family=Patrick+Hand&family=Permanent+Marker&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -28,8 +31,8 @@
     <aside class="side">
       <section class="card">
         <h2>Pridať legendy</h2>
-        <p class="hint">Jeden riadok = jedna legenda. Voliteľne: <code>TEXT | podtext | farba | ikona</code>. Zalomenie riadku v legende: <code>//</code></p>
-        <textarea id="bulk" rows="8" placeholder="WASH RED&#10;STROBE | FX | | ⚡&#10;FRONT // WARM | Pos 1&#10;CTB&#10;GOBO 3 | | #7d3cc8"></textarea>
+        <p class="hint">Jeden riadok = jedna legenda. Voliteľne: <code>TEXT | podtext | farba | šípka/ikona</code>. Viac farieb: <code>red+blue</code>. Šípky: <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>, <code>fanout</code>, <code>fanin</code>, <code>center</code>, <code>cross</code>, <code>audience</code>, <code>floor</code>, <code>circle</code>… Zalomenie: <code>//</code></p>
+        <textarea id="bulk" rows="8" placeholder="R&#10;MAG | | magenta&#10;R+W | | red+white&#10;FAN OUT&#10;| | | up&#10;STROBE | FX | | ⚡"></textarea>
         <div class="row">
           <label class="field">Kategória
             <select id="bulkCat"></select>
@@ -41,16 +44,30 @@
       <section class="card">
         <h2>Vzhľad</h2>
         <div class="grid2">
-          <label class="field">Veľkosť (px)
-            <select id="sSize">
-              <option value="64">64 × 64</option>
-              <option value="128">128 × 128</option>
-              <option value="256">256 × 256</option>
-              <option value="512">512 × 512</option>
+          <label class="field wide">Rozmer legendy (px)
+            <select id="sPreset">
+              <option value="160x72">160 × 72 (široký, ako tlačidlo v Titane)</option>
+              <option value="320x144">320 × 144 (široký, ostrý)</option>
+              <option value="160x100">160 × 100 (obdĺžnik)</option>
+              <option value="128x80">128 × 80 (obdĺžnik)</option>
+              <option value="200x120">200 × 120 (obdĺžnik)</option>
+              <option value="320x200">320 × 200 (obdĺžnik, ostrý)</option>
+              <option value="128x64">128 × 64 (široký)</option>
+              <option value="128x128">128 × 128 (štvorec)</option>
+              <option value="custom">Vlastný…</option>
             </select>
+          </label>
+          <label class="field">Šírka
+            <input type="number" id="sW" min="16" max="1024" step="1">
+          </label>
+          <label class="field">Výška
+            <input type="number" id="sH" min="16" max="1024" step="1">
           </label>
           <label class="field">Štýl
             <select id="sStyle">
+              <option value="auto">Podľa kategórie</option>
+              <option value="scribble">Machuľa (fixka)</option>
+              <option value="clear">Priehľadná (len kresba)</option>
               <option value="fill">Celá farba</option>
               <option value="bar">Tmavá + farebný pás</option>
               <option value="frame">Tmavá + farebný rám</option>
@@ -58,10 +75,19 @@
           </label>
           <label class="field">Písmo
             <select id="sFont">
-              <option value="sans">Arial</option>
-              <option value="condensed">Úzke (Narrow)</option>
-              <option value="impact">Impact</option>
-              <option value="mono">Mono</option>
+              <optgroup label="Písané">
+                <option value="marker">Fixka (Permanent Marker)</option>
+                <option value="caveat">Rukopis (Caveat)</option>
+                <option value="kalam">Rukopis 2 (Kalam)</option>
+                <option value="patrick">Paličkové (Patrick Hand)</option>
+                <option value="dancing">Krasopis (Dancing Script)</option>
+              </optgroup>
+              <optgroup label="Tlačené">
+                <option value="sans">Arial</option>
+                <option value="condensed">Úzke (Narrow)</option>
+                <option value="impact">Impact</option>
+                <option value="mono">Mono</option>
+              </optgroup>
             </select>
           </label>
           <label class="field">Stĺpce okna
@@ -83,7 +109,7 @@
           <button id="printBtn" class="btn">Tlačiť / PDF</button>
           <button id="clearBtn" class="btn danger">Vymazať všetko</button>
         </div>
-        <p class="hint">PNG nahraj na USB a v Titane ich importuj ako obrázkové legendy (Set Legend → Picture / Legend editor → Import).</p>
+        <p class="hint">PNG nahraj na USB a v Titane ich importuj ako obrázkové legendy (Set Legend → Picture / Legend editor → Import). Rozmer nastav podľa tlačidla na pulte – legenda je obdĺžnik.</p>
       </section>
     </aside>
 

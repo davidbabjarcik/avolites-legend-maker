@@ -1,11 +1,12 @@
-import { CATEGORIES, drawLegend, legendColor, fileName } from './render.js';
+import { CATEGORIES, STYLES, drawLegend, legendColor, legendColors, fileName, legendSize, ensureFont } from './render.js';
+import { ARROWS, parseArrow } from './arrows.js';
 import { makeZip } from './zip.js';
 
 const STORE_KEY = 'alm-state-v1';
 const $ = (id) => document.getElementById(id);
 
 const DEFAULT_SETTINGS = {
-  size: 128, style: 'fill', font: 'sans', bold: true, upper: true,
+  width: 160, height: 72, style: 'auto', font: 'marker', bold: false, upper: true,
   autoColor: true, showNumber: false, cols: 6,
 };
 
@@ -16,10 +17,22 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      return { settings: { ...DEFAULT_SETTINGS, ...s.settings }, items: Array.isArray(s.items) ? s.items : [] };
+      return { settings: migrate(s.settings), items: Array.isArray(s.items) ? s.items.map(normalizeItem) : [] };
     }
   } catch { /* prázdne úložisko alebo blokované */ }
   return { settings: { ...DEFAULT_SETTINGS }, items: [] };
+}
+
+/** Staré projekty mali len "size" (štvorec) – prevedieme na šírku × výšku. */
+function migrate(settings = {}) {
+  const out = { ...DEFAULT_SETTINGS, ...settings };
+  if (settings.size && !settings.width) {
+    const { W, H } = legendSize(settings);
+    out.width = W;
+    out.height = H;
+  }
+  delete out.size;
+  return out;
 }
 
 function save() {
@@ -37,29 +50,47 @@ function normalizeItem(i) {
     bg: /^#[0-9a-f]{6}$/i.test(i.bg || '') ? i.bg : '',
     fg: /^#[0-9a-f]{6}$/i.test(i.fg || '') ? i.fg : '',
     icon: String(i.icon ?? ''),
+    colors: Array.isArray(i.colors) ? i.colors.filter((c) => /^#[0-9a-f]{6}$/i.test(c)) : [],
+    arrow: i.arrow === 'none' || ARROWS[i.arrow] ? i.arrow : '',
+    style: STYLES[i.style] && i.style !== 'auto' ? i.style : '',
   };
 }
 
+/** "red", "#ff0000", "ff0000" → "#ff0000" alebo '' */
+function parseColor(value) {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  if (/^#?[0-9a-f]{6}$/i.test(v)) return (v.startsWith('#') ? v : '#' + v).toLowerCase();
+  const c = document.createElement('canvas').getContext('2d');
+  c.fillStyle = '#000001';
+  c.fillStyle = v;
+  return c.fillStyle !== '#000001' ? c.fillStyle : '';
+}
+
+/** "red+blue+white" → ['#ff0000', ...] */
+const parseColors = (value) => String(value || '').split(/[+,]/).map(parseColor).filter(Boolean);
+
 /** "TEXT | podtext | farba | ikona" → položka */
 function parseLine(line, cat) {
-  const [text = '', sub = '', color = '', icon = ''] = line.split('|').map((s) => s.trim());
-  let bg = '';
-  if (/^#?[0-9a-f]{6}$/i.test(color)) bg = color.startsWith('#') ? color : '#' + color;
-  else if (color) {
-    // povolíme aj CSS názvy farieb ("red", "orange"...)
-    const c = document.createElement('canvas').getContext('2d');
-    c.fillStyle = '#000001';
-    c.fillStyle = color;
-    if (c.fillStyle !== '#000001') bg = c.fillStyle;
-  }
-  return normalizeItem({ text: text.replace(/\s*\/\/\s*/g, '\n'), sub, cat, bg, icon });
+  const [text = '', sub = '', color = '', sym = ''] = line.split('|').map((s) => s.trim());
+  const colors = parseColors(color);
+  // 4. pole môže byť šípka ("up", "↑", "fan out"…) alebo emoji ikona
+  const arrow = parseArrow(sym);
+  return normalizeItem({
+    text: text.replace(/\s*\/\/\s*/g, '\n'), sub, cat,
+    bg: colors[0] || '', colors: colors.length > 1 ? colors : [],
+    arrow: arrow || '', icon: arrow ? '' : sym,
+  });
 }
 
 /* ---------- vykreslenie ---------- */
 
 function renderAll() {
   const s = state.settings;
-  $('sSize').value = String(s.size);
+  const preset = `${s.width}x${s.height}`;
+  $('sPreset').value = [...$('sPreset').options].some((o) => o.value === preset) ? preset : 'custom';
+  $('sW').value = s.width;
+  $('sH').value = s.height;
   $('sStyle').value = s.style;
   $('sFont').value = s.font;
   $('sCols').value = s.cols;
@@ -99,6 +130,17 @@ function catOptions(selected) {
     .join('');
 }
 
+function styleOptions(selected) {
+  return '<option value="">– podľa nastavenia –</option>' + Object.entries(STYLES)
+    .filter(([k]) => k !== 'auto')
+    .map(([k, v]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${v}</option>`).join('');
+}
+
+function arrowOptions(selected) {
+  return `<option value="">auto (Position / FX)</option><option value="none"${selected === 'none' ? ' selected' : ''}>žiadna</option>` +
+    Object.entries(ARROWS).map(([k, v]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${v.char} ${v.label}</option>`).join('');
+}
+
 function esc(s) {
   return s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 }
@@ -118,7 +160,10 @@ function renderList() {
         <label class="field wide">Text<textarea rows="2" data-k="text">${esc(item.text)}</textarea></label>
         <label class="field">Podtext<input data-k="sub" value="${esc(item.sub)}" placeholder="napr. Pos 1"></label>
         <label class="field">Kategória<select data-k="cat">${catOptions(item.cat)}</select></label>
+        <label class="field">Štýl<select data-k="style">${styleOptions(item.style)}</select></label>
+        <label class="field">Šípka<select data-k="arrow">${arrowOptions(item.arrow)}</select></label>
         <label class="field">Ikona<input data-k="icon" list="icons" value="${esc(item.icon)}" placeholder="žiadna"></label>
+        <label class="field">Pruhy (viac farieb)<input data-k="colorsText" value="${esc(item.colors.join('+'))}" placeholder="red+blue"></label>
         <div class="field colors">
           <span>Farby</span>
           <div class="color-row">
@@ -160,7 +205,14 @@ $('list').addEventListener('input', (e) => {
   if (!k) return;
   const item = state.items.find((x) => x.id === el.closest('.item').dataset.id);
   if (!item) return;
-  item[k] = el.value;
+  if (k === 'colorsText') {
+    const cs = parseColors(el.value);
+    item.colors = cs.length > 1 ? cs : [];
+    if (cs.length) item.bg = cs[0];
+  } else {
+    item[k] = el.value;
+  }
+  if (k === 'bg' && item.colors.length > 1) item.colors[0] = el.value;
   if (k === 'bg' || k === 'fg') el.closest('.item').querySelector(`[data-act="${k}auto"]`).disabled = false;
   redrawItem(item);
   save();
@@ -168,7 +220,7 @@ $('list').addEventListener('input', (e) => {
 
 $('list').addEventListener('change', (e) => {
   // zmena kategórie mení automatickú farbu – prekreslíme aj color picker
-  if (e.target.dataset.k === 'cat') renderList();
+  if (e.target.dataset.k === 'cat' || e.target.dataset.k === 'colorsText') renderList();
 });
 
 $('list').addEventListener('click', (e) => {
@@ -180,9 +232,9 @@ $('list').addEventListener('click', (e) => {
   switch (btn.dataset.act) {
     case 'up': if (i > 0) [state.items[i - 1], state.items[i]] = [state.items[i], state.items[i - 1]]; break;
     case 'down': if (i < state.items.length - 1) [state.items[i + 1], state.items[i]] = [state.items[i], state.items[i + 1]]; break;
-    case 'dup': state.items.splice(i + 1, 0, { ...item, id: uid() }); break;
+    case 'dup': state.items.splice(i + 1, 0, { ...item, colors: [...item.colors], id: uid() }); break;
     case 'del': state.items.splice(i, 1); break;
-    case 'bgauto': item.bg = ''; break;
+    case 'bgauto': item.bg = ''; item.colors = []; break;
     case 'fgauto': item.fg = ''; break;
     case 'png': downloadPng(item, i); return;
   }
@@ -215,11 +267,32 @@ const bindSetting = (id, key, read) => {
     renderAll();
   });
 };
-bindSetting('sSize', 'size', (el) => Number(el.value));
+const clampPx = (v, d) => Math.min(1024, Math.max(16, Math.round(Number(v)) || d));
+bindSetting('sW', 'width', (el) => clampPx(el.value, 160));
+bindSetting('sH', 'height', (el) => clampPx(el.value, 100));
+$('sPreset').addEventListener('change', () => {
+  const v = $('sPreset').value;
+  if (v === 'custom') { $('sW').focus(); return; }
+  const [w, h] = v.split('x').map(Number);
+  state.settings.width = w;
+  state.settings.height = h;
+  save();
+  renderAll();
+});
 bindSetting('sStyle', 'style', (el) => el.value);
-bindSetting('sFont', 'font', (el) => el.value);
+$('sFont').addEventListener('change', async () => {
+  state.settings.font = $('sFont').value;
+  save();
+  await ensureFont(state.settings.font, state.settings.bold);
+  renderAll();
+});
 bindSetting('sCols', 'cols', (el) => Math.min(12, Math.max(2, Number(el.value) || 6)));
-bindSetting('sBold', 'bold', (el) => el.checked);
+$('sBold').addEventListener('change', async () => {
+  state.settings.bold = $('sBold').checked;
+  save();
+  await ensureFont(state.settings.font, state.settings.bold);
+  renderAll();
+});
 bindSetting('sUpper', 'upper', (el) => el.checked);
 bindSetting('sAuto', 'autoColor', (el) => el.checked);
 bindSetting('sNum', 'showNumber', (el) => el.checked);
@@ -239,6 +312,7 @@ function download(blob, name) {
 const canvasBlob = (c) => new Promise((res) => c.toBlob(res, 'image/png'));
 
 async function downloadPng(item, i) {
+  await ensureFont(state.settings.font, state.settings.bold);
   const c = document.createElement('canvas');
   drawLegend(c, item, state.settings, i);
   download(await canvasBlob(c), fileName(item, i));
@@ -249,6 +323,7 @@ $('zipBtn').addEventListener('click', async () => {
   const btn = $('zipBtn');
   btn.disabled = true;
   try {
+    await ensureFont(state.settings.font, state.settings.bold);
     const files = [];
     const c = document.createElement('canvas');
     for (let i = 0; i < state.items.length; i++) {
@@ -257,7 +332,8 @@ $('zipBtn').addEventListener('click', async () => {
       files.push({ name: fileName(state.items[i], i), data: new Uint8Array(await blob.arrayBuffer()) });
     }
     files.push({ name: 'legendy.txt', data: new TextEncoder().encode(textList()) });
-    download(makeZip(files), `avolites-legendy-${state.settings.size}px.zip`);
+    const { W, H } = legendSize(state.settings);
+    download(makeZip(files), `avolites-legendy-${W}x${H}.zip`);
   } finally {
     btn.disabled = false;
   }
@@ -322,8 +398,9 @@ $('importJson').addEventListener('change', async (e) => {
   try {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.items)) throw new Error('chýba zoznam legiend');
-    state = { settings: { ...DEFAULT_SETTINGS, ...data.settings }, items: data.items.map(normalizeItem) };
+    state = { settings: migrate(data.settings), items: data.items.map(normalizeItem) };
     save();
+    await ensureFont(state.settings.font, state.settings.bold);
     renderAll();
   } catch (err) {
     alert('Súbor sa nepodarilo načítať: ' + err.message);
@@ -354,9 +431,15 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 let firstRun = true;
 try { firstRun = !localStorage.getItem(STORE_KEY); } catch { /* bez úložiska */ }
 if (!state.items.length && firstRun) {
-  state.items = [
-    'WASH RED', 'WASH BLUE', 'CTO', 'STROBE | | | ⚡', 'FRONT // WARM | Pos 1', 'GOBO 3',
-  ].map((l, i) => parseLine(l, ['color', 'color', 'color', 'effect', 'position', 'gobo'][i]));
+  const samples = [
+    ['R', 'color'], ['O | | orange', 'color'], ['Y', 'color'], ['G', 'color'], ['C', 'color'],
+    ['B', 'color'], ['UV', 'color'], ['W', 'color'], ['CTO', 'color'], ['R+B | | red+blue', 'color'],
+    ['FAN OUT', 'position'], ['CENTER', 'position'], ['| | | up', 'position'], ['AUDIENCE', 'position'],
+    ['CROSS', 'position'], ['CIRCLE | FX', 'effect'], ['STROBE | | | ⚡', 'effect'], ['GO', 'playback'],
+  ];
+  state.items = samples.map(([l, cat]) => parseLine(l, cat));
 }
 
 renderAll();
+// písaný font sa sťahuje chvíľu – po načítaní prekreslíme
+ensureFont(state.settings.font, state.settings.bold).then(renderAll);
