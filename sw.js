@@ -1,5 +1,5 @@
 /* Service worker: súbory appky sa uložia do cache, takže funguje aj offline (napr. pri pulte bez internetu). */
-const CACHE = 'alm-v4.0.0';
+const CACHE = 'alm-v4.1.0';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const ASSETS = [
   './',

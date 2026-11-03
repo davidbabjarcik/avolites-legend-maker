@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.1 – 2026-11-03
+- Štítok fixtúry/spreadu je väčší a čitateľnejší: čierny s bielym okrajom, hrubé písmo
+- Machuľa a priehľadné legendy nechajú štítku vlastný pruh hore, takže sa neprekrývajú
+- Dlhý štítok (napr. `LED BAR · ×2`) sa radšej zmenší, než aby sa orezal
+
 ## v4 – 2026-11-03
 - **Fixtúra** – štítok v pravom hornom rohu (SPOT, WASH, BEAM, LED BAR…), dá sa nastaviť pre každú legendu alebo naraz pri pridávaní
 - **Spread** – pri kruhu (circle) sa nakreslí 2 / 4 / 6 / 8… krúžkov a bodka v každom je posunutá podľa fázy; pri ostatných efektoch je v štítku `×N`

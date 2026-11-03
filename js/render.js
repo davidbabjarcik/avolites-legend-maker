@@ -241,6 +241,33 @@ export function drawLegend(canvas, item, settings, index = 0) {
   const script = family.startsWith('"');
   const arrow = resolveArrow(item);
 
+  // Spread: pri kruhu sa nakreslí N krúžkov s fázou, inak len "×N" v štítku
+  const spread = Math.max(1, Math.min(16, Number(item.spread) || 1));
+  const spreadCircles = spread > 1 && arrow === 'circle';
+
+  // Štítok vpravo hore (fixtúra / spread) – vypočítame vopred, aby mu machuľa urobila miesto
+  const badgeText = [String(item.fixture || '').trim().toUpperCase(), spread > 1 && !spreadCircles ? `×${spread}` : '']
+    .filter(Boolean).join(' · ');
+  let badge = null;
+  if (badgeText) {
+    // najprv skúsime písmo zmenšiť, aby sa štítok zmestil celý; skracujeme až nakoniec
+    const maxW = W * 0.94;
+    let bs = Math.max(9, Math.round(M * 0.24));
+    const minBs = Math.max(8, Math.round(M * 0.15));
+    ctx.font = `900 ${bs}px ${FONTS.sans}`;
+    while (bs > minBs && ctx.measureText(badgeText).width + bs * 0.9 > maxW) {
+      bs--;
+      ctx.font = `900 ${bs}px ${FONTS.sans}`;
+    }
+    let label = badgeText;
+    while (ctx.measureText(label).width + bs * 0.9 > maxW && label.length > 2) label = label.slice(0, -2) + '…';
+    const bw = ctx.measureText(label).width + bs * 0.9;
+    const bh = Math.round(bs * 1.3);
+    const mg = Math.max(1, Math.round(M * 0.025));
+    badge = { label, bs, bw, bh, bx: W - bw - mg, by: mg, strip: bh + mg * 2 };
+  }
+  const strip = badge ? badge.strip : 0;
+
   let bg = color;
   let outline = false; // obrys textu, aby bol čitateľný na machuli / priehľadnom pozadí
   let area = { x: 0, y: 0, w: W, h: H };
@@ -262,10 +289,12 @@ export function drawLegend(canvas, item, settings, index = 0) {
     bg = '#000000';
     outline = true;
     const m = Math.round(M * 0.03);
-    drawScribble(ctx, colors, m, m, W - 2 * m, H - 2 * m, hashStr((item.text || '') + (item.id || '')));
+    drawScribble(ctx, colors, m, m + strip, W - 2 * m, H - 2 * m - strip, hashStr((item.text || '') + (item.id || '')));
+    area = { x: 0, y: strip, w: W, h: H - strip };
   } else if (style === 'clear') {
     bg = '#000000';
     outline = true;
+    area = { x: 0, y: strip, w: W, h: H - strip };
   } else {
     fillStripes(ctx, colors, 0, 0, W, H);
   }
@@ -309,35 +338,25 @@ export function drawLegend(canvas, item, settings, index = 0) {
   if (settings.upper) text = text.toUpperCase();
   const hasText = text.trim().length > 0;
 
-  // Spread: pri kruhu sa nakreslí N krúžkov s fázou, inak len štítok "×N"
-  const spread = Math.max(1, Math.min(16, Number(item.spread) || 1));
-  const spreadCircles = spread > 1 && arrow === 'circle';
-
-  // Štítok vpravo hore: typ fixtúry a/alebo spread
-  const badge = [String(item.fixture || '').trim().toUpperCase(), spread > 1 && !spreadCircles ? `×${spread}` : '']
-    .filter(Boolean).join(' · ');
   if (badge) {
-    const bs = Math.max(7, Math.round(M * 0.17));
-    ctx.font = `bold ${bs}px ${FONTS.sans}`;
-    const maxBw = area.w * 0.7;
-    let label = badge;
-    while (ctx.measureText(label).width > maxBw - bs && label.length > 2) label = label.slice(0, -2) + '…';
-    const bw = ctx.measureText(label).width + bs * 0.9;
-    const bh = bs * 1.35;
-    const bx = area.x + area.w - bw - Math.round(M * 0.03);
-    const by = area.y + Math.round(M * 0.03);
+    // výrazný štítok: čierny s bielym okrajom, čitateľný na akomkoľvek pozadí
+    const { label, bs, bw, bh, bx, by } = badge;
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, bh / 2); else ctx.rect(bx, by, bw, bh);
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, Math.round(bh * 0.3)); else ctx.rect(bx, by, bw, bh);
+    ctx.fillStyle = '#000000';
     ctx.fill();
+    ctx.lineWidth = Math.max(1, bs * 0.08);
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    ctx.font = `900 ${bs}px ${FONTS.sans}`;
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, bx + bw / 2, by + bh / 2 + 0.5);
+    ctx.fillText(label, bx + bw / 2, by + bh / 2 + bs * 0.05);
     ctx.restore();
-    // pri machuli necháme písmeno v strede škvrny, inak text posunieme pod štítok
-    if (style !== 'scribble') top = Math.max(top, by + bh + Math.round(M * 0.02));
+    // pri plných štýloch posunieme text pod štítok (pri machuli/priehľadnej už je miesto rezervované)
+    top = Math.max(top, strip + Math.round(M * 0.02));
   }
 
   if (item.sub) {
