@@ -53,6 +53,8 @@ function normalizeItem(i) {
     colors: Array.isArray(i.colors) ? i.colors.filter((c) => /^#[0-9a-f]{6}$/i.test(c)) : [],
     arrow: i.arrow === 'none' || ARROWS[i.arrow] ? i.arrow : '',
     style: STYLES[i.style] && i.style !== 'auto' ? i.style : '',
+    fixture: String(i.fixture ?? '').trim(),
+    spread: Math.max(1, Math.min(16, Math.round(Number(i.spread)) || 1)),
   };
 }
 
@@ -70,9 +72,18 @@ function parseColor(value) {
 /** "red+blue+white" → ['#ff0000', ...] */
 const parseColors = (value) => String(value || '').split(/[+,]/).map(parseColor).filter(Boolean);
 
-/** "TEXT | podtext | farba | ikona" → položka */
-function parseLine(line, cat) {
-  const [text = '', sub = '', color = '', sym = ''] = line.split('|').map((s) => s.trim());
+/** "×4", "x4", "4" → 4 */
+const parseSpread = (v) => Number(String(v || '').replace(/^[x×*]/i, '')) || 1;
+
+/** "TEXT | podtext | farba | šípka/ikona | fixtúra | spread" → položka */
+function parseLine(line, cat, defaultFixture = '') {
+  let [text = '', sub = '', color = '', sym = '', fixture = '', spread = ''] = line.split('|').map((s) => s.trim());
+  // "CIRCLE x4" na konci textu = spread 4
+  const m = text.match(/\s+[x×](\d{1,2})$/i);
+  if (m && !spread) {
+    spread = m[1];
+    text = text.slice(0, m.index);
+  }
   const colors = parseColors(color);
   // 4. pole môže byť šípka ("up", "↑", "fan out"…) alebo emoji ikona
   const arrow = parseArrow(sym);
@@ -80,6 +91,7 @@ function parseLine(line, cat) {
     text: text.replace(/\s*\/\/\s*/g, '\n'), sub, cat,
     bg: colors[0] || '', colors: colors.length > 1 ? colors : [],
     arrow: arrow || '', icon: arrow ? '' : sym,
+    fixture: fixture || defaultFixture, spread: parseSpread(spread),
   });
 }
 
@@ -163,6 +175,8 @@ function renderList() {
         <label class="field">Štýl<select data-k="style">${styleOptions(item.style)}</select></label>
         <label class="field">Šípka<select data-k="arrow">${arrowOptions(item.arrow)}</select></label>
         <label class="field">Ikona<input data-k="icon" list="icons" value="${esc(item.icon)}" placeholder="žiadna"></label>
+        <label class="field">Fixtúra<input data-k="fixture" list="fixtures" value="${esc(item.fixture)}" placeholder="napr. SPOT"></label>
+        <label class="field">Spread<input type="number" data-k="spread" min="1" max="16" value="${item.spread}"></label>
         <label class="field">Pruhy (viac farieb)<input data-k="colorsText" value="${esc(item.colors.join('+'))}" placeholder="red+blue"></label>
         <div class="field colors">
           <span>Farby</span>
@@ -210,7 +224,7 @@ $('list').addEventListener('input', (e) => {
     item.colors = cs.length > 1 ? cs : [];
     if (cs.length) item.bg = cs[0];
   } else {
-    item[k] = el.value;
+    item[k] = k === 'spread' ? Math.max(1, Math.min(16, Math.round(Number(el.value)) || 1)) : el.value;
   }
   if (k === 'bg' && item.colors.length > 1) item.colors[0] = el.value;
   if (k === 'bg' || k === 'fg') el.closest('.item').querySelector(`[data-act="${k}auto"]`).disabled = false;
@@ -250,7 +264,8 @@ $('addBtn').addEventListener('click', () => {
   const lines = $('bulk').value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (!lines.length) return;
   const cat = $('bulkCat').value;
-  state.items.push(...lines.map((l) => parseLine(l, cat)));
+  const fixture = $('bulkFixture').value.trim();
+  state.items.push(...lines.map((l) => parseLine(l, cat, fixture)));
   $('bulk').value = '';
   save();
   renderAll();
@@ -345,6 +360,8 @@ function textList() {
   const lines = state.items.map((it, i) => {
     const parts = [`${String(i + 1).padStart(3, ' ')}.  ${oneLine(it.text)}`];
     if (it.sub) parts.push(`(${it.sub})`);
+    if (it.fixture) parts.push(`[${it.fixture}]`);
+    if (it.spread > 1) parts.push(`spread ${it.spread}`);
     parts.push(`– ${CATEGORIES[it.cat].label}`);
     parts.push(legendColor(it, state.settings));
     return parts.join('  ');
@@ -358,9 +375,9 @@ $('txtBtn').addEventListener('click', () => {
 
 $('csvBtn').addEventListener('click', () => {
   const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
-  const rows = [['#', 'text', 'podtext', 'kategoria', 'pozadie', 'text_farba', 'ikona', 'subor']];
+  const rows = [['#', 'text', 'podtext', 'kategoria', 'fixtura', 'spread', 'pozadie', 'text_farba', 'ikona', 'subor']];
   state.items.forEach((it, i) => rows.push([
-    i + 1, oneLine(it.text), it.sub, CATEGORIES[it.cat].label, legendColor(it, state.settings),
+    i + 1, oneLine(it.text), it.sub, CATEGORIES[it.cat].label, it.fixture, it.spread, legendColor(it, state.settings),
     it.fg || 'auto', it.icon, fileName(it, i),
   ]));
   const csv = '﻿' + rows.map((r) => r.map(q).join(';')).join('\r\n');
@@ -435,7 +452,8 @@ if (!state.items.length && firstRun) {
     ['R', 'color'], ['O | | orange', 'color'], ['Y', 'color'], ['G', 'color'], ['C', 'color'],
     ['B', 'color'], ['UV', 'color'], ['W', 'color'], ['CTO', 'color'], ['R+B | | red+blue', 'color'],
     ['FAN OUT', 'position'], ['CENTER', 'position'], ['| | | up', 'position'], ['AUDIENCE', 'position'],
-    ['CROSS', 'position'], ['CIRCLE | FX', 'effect'], ['STROBE | | | ⚡', 'effect'], ['GO', 'playback'],
+    ['CROSS | | | | SPOT', 'position'], ['CIRCLE | | | | SPOT', 'effect'], ['CIRCLE x4 | | | | SPOT', 'effect'],
+    ['| | | circle | | 8', 'effect'], ['STROBE | | | ⚡ | WASH', 'effect'], ['GO', 'playback'],
   ];
   state.items = samples.map(([l, cat]) => parseLine(l, cat));
 }

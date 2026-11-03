@@ -95,6 +95,41 @@ function dot(ctx, x, y, r) {
   ctx.fill();
 }
 
+/**
+ * Spread pre kruh: N krúžkov, v každom bodka posunutá o 360°/N – vidno fázový posun medzi skupinami.
+ * Kreslí sa do boxu w × h so stredom (cx, cy).
+ */
+export function drawSpreadCircles(ctx, n, cx, cy, w, h, color) {
+  // rozloženie do mriežky, ktoré najlepšie vyplní box
+  let best = { cols: n, rows: 1, cell: 0 };
+  for (let rows = 1; rows <= n; rows++) {
+    const cols = Math.ceil(n / rows);
+    const cell = Math.min(w / cols, h / rows);
+    if (cell > best.cell) best = { cols, rows, cell };
+  }
+  const { cols, rows, cell } = best;
+  const R = cell * 0.36;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(1.5, cell * 0.08);
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / cols);
+    const inRow = row === rows - 1 ? n - row * cols : cols; // posledný riadok vycentrujeme
+    const col = i - row * cols;
+    const x = cx + (col - (inRow - 1) / 2) * cell;
+    const y = cy + (row - (rows - 1) / 2) * cell;
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, Math.PI * 2);
+    ctx.stroke();
+    const a = -Math.PI / 2 + (i * Math.PI * 2) / n;
+    ctx.beginPath();
+    ctx.arc(x + Math.cos(a) * R, y + Math.sin(a) * R, Math.max(2, cell * 0.11), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 /** Nakreslí symbol do štvorca so stredom (cx, cy) a stranou s. */
 export function drawArrow(ctx, kind, cx, cy, s, color) {
   const r = s / 2;

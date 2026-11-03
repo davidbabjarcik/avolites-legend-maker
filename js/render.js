@@ -1,4 +1,4 @@
-import { resolveArrow, drawArrow } from './arrows.js';
+import { resolveArrow, drawArrow, drawSpreadCircles } from './arrows.js';
 
 /* Kreslenie jednej legendy do canvasu. Bez závislostí, používa sa v appke aj pri exporte. */
 
@@ -309,6 +309,37 @@ export function drawLegend(canvas, item, settings, index = 0) {
   if (settings.upper) text = text.toUpperCase();
   const hasText = text.trim().length > 0;
 
+  // Spread: pri kruhu sa nakreslí N krúžkov s fázou, inak len štítok "×N"
+  const spread = Math.max(1, Math.min(16, Number(item.spread) || 1));
+  const spreadCircles = spread > 1 && arrow === 'circle';
+
+  // Štítok vpravo hore: typ fixtúry a/alebo spread
+  const badge = [String(item.fixture || '').trim().toUpperCase(), spread > 1 && !spreadCircles ? `×${spread}` : '']
+    .filter(Boolean).join(' · ');
+  if (badge) {
+    const bs = Math.max(7, Math.round(M * 0.17));
+    ctx.font = `bold ${bs}px ${FONTS.sans}`;
+    const maxBw = area.w * 0.7;
+    let label = badge;
+    while (ctx.measureText(label).width > maxBw - bs && label.length > 2) label = label.slice(0, -2) + '…';
+    const bw = ctx.measureText(label).width + bs * 0.9;
+    const bh = bs * 1.35;
+    const bx = area.x + area.w - bw - Math.round(M * 0.03);
+    const by = area.y + Math.round(M * 0.03);
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, bh / 2); else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, bx + bw / 2, by + bh / 2 + 0.5);
+    ctx.restore();
+    // pri machuli necháme písmeno v strede škvrny, inak text posunieme pod štítok
+    if (style !== 'scribble') top = Math.max(top, by + bh + Math.round(M * 0.02));
+  }
+
   if (item.sub) {
     const ss = Math.round(M * 0.15);
     const fitted = fitText(ctx, item.sub, right - left, ss * 1.1, 'normal', family, ss);
@@ -319,7 +350,25 @@ export function drawLegend(canvas, item, settings, index = 0) {
     bottom -= fitted.size * 1.25;
   }
 
-  if (arrow || item.icon) {
+  if (spreadCircles) {
+    const sym = (cx, cy, w, h) => {
+      if (style === 'clear') drawSpreadCircles(ctx, spread, cx + 1, cy + 1, w, h, 'rgba(0,0,0,0.6)');
+      drawSpreadCircles(ctx, spread, cx, cy, w, h, fg);
+    };
+    if (!hasText) {
+      sym((left + right) / 2, (top + bottom) / 2, right - left, bottom - top);
+      return;
+    }
+    if (W >= H * 1.3) {
+      const sw = (right - left) * 0.5;
+      sym(left + sw / 2, (top + bottom) / 2, sw, bottom - top);
+      left += sw * 1.05;
+    } else {
+      const sh = (bottom - top) * 0.5;
+      sym((left + right) / 2, top + sh / 2, right - left, sh);
+      top += sh * 1.05;
+    }
+  } else if (arrow || item.icon) {
     const drawSym = (cx, cy, sz) => {
       if (arrow) {
         if (outline && style === 'clear') drawArrow(ctx, arrow, cx + 1, cy + 1, sz, 'rgba(0,0,0,0.6)');

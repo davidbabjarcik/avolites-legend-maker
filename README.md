@@ -6,15 +6,19 @@ Offline PWA na tvorbu legiend pre okná (workspace windows) na pultoch **Avolite
 
 ## Čo vie
 
-- **Hromadné pridanie** – jeden riadok = jedna legenda, voliteľne `TEXT | podtext | farba | šípka/ikona`, zalomenie riadku `//`
+- **Hromadné pridanie** – jeden riadok = jedna legenda, voliteľne `TEXT | podtext | farba | šípka/ikona | fixtúra | spread`, zalomenie riadku `//`
   ```
   R
   MAG | | magenta
   R+W | | red+white
   FAN OUT
   | | | up
+  CIRCLE x4 | | | | SPOT
+  | | | circle | WASH | 8
   STROBE | FX | | ⚡
   ```
+- **Fixtúra** – štítok vpravo hore (SPOT, WASH, BEAM, LED BAR…), aj naraz pre všetky pridávané legendy
+- **Spread** – kruh so spreadom 2 / 4 / 6 / 8 sa nakreslí ako toľko krúžkov s posunutou fázou; pri iných efektoch `×N` v štítku
 - **Machuľa ako fixkou** – farba ako načmáraná škvrna na priehľadnom pozadí, navrchu biele písmeno (R, G, B…) s obrysom – ako farebné palety v Titane
 - **Viac farieb** – `red+blue+white` spraví pruhy (aj v machuli)
 - **Šípky pre pozície** – kreslené vektorovo: hore, dole, vľavo, vpravo, šikmo, hore-dole, do strán, stred/cieľ, fan out, fan in, kríž, do publika, na podlahu, do neba, kruh/ballyhoo. Pri kategórii Position a FX sa šípka vyberie sama podľa názvu (`FAN OUT`, `CENTER`, `AUDIENCE`, `MOVE LEFT`…). Bez textu je šípka cez celú legendu.
@@ -49,6 +53,8 @@ python -m http.server 8080
 ```
 
 Potom otvor http://localhost:8080.
+
+Čo sa zmenilo v ktorej verzii: [CHANGELOG.md](CHANGELOG.md)
 
 ## Štruktúra
 

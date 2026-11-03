@@ -31,11 +31,14 @@
     <aside class="side">
       <section class="card">
         <h2>Pridať legendy</h2>
-        <p class="hint">Jeden riadok = jedna legenda. Voliteľne: <code>TEXT | podtext | farba | šípka/ikona</code>. Viac farieb: <code>red+blue</code>. Šípky: <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>, <code>fanout</code>, <code>fanin</code>, <code>center</code>, <code>cross</code>, <code>audience</code>, <code>floor</code>, <code>circle</code>… Zalomenie: <code>//</code></p>
+        <p class="hint">Jeden riadok = jedna legenda. Voliteľne: <code>TEXT | podtext | farba | šípka/ikona | fixtúra | spread</code>. Spread aj skratkou: <code>CIRCLE x4</code>. Viac farieb: <code>red+blue</code>. Šípky: <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>, <code>fanout</code>, <code>fanin</code>, <code>center</code>, <code>cross</code>, <code>audience</code>, <code>floor</code>, <code>circle</code>… Zalomenie: <code>//</code></p>
         <textarea id="bulk" rows="8" placeholder="R&#10;MAG | | magenta&#10;R+W | | red+white&#10;FAN OUT&#10;| | | up&#10;STROBE | FX | | ⚡"></textarea>
         <div class="row">
           <label class="field">Kategória
             <select id="bulkCat"></select>
+          </label>
+          <label class="field">Fixtúra
+            <input id="bulkFixture" list="fixtures" placeholder="napr. SPOT">
           </label>
           <button id="addBtn" class="btn primary">Pridať</button>
         </div>
@@ -131,6 +134,11 @@
   </main>
 
   <div id="printSheet" class="print-sheet"></div>
+  <datalist id="fixtures">
+    <option value="SPOT"><option value="WASH"><option value="BEAM"><option value="HYBRID"><option value="PROFILE">
+    <option value="LED BAR"><option value="PAR"><option value="BLINDER"><option value="STROBE"><option value="PIXEL">
+    <option value="FRESNEL"><option value="LASER"><option value="ALL">
+  </datalist>
   <datalist id="icons">
     <option value="💡"><option value="🎨"><option value="⚡"><option value="🔥"><option value="❄️">
     <option value="⭐"><option value="🌈"><option value="🎯"><option value="🌀"><option value="♪">
